@@ -33,9 +33,11 @@ jobs:
         run: |
           set -euo pipefail
           latest_release=$(gh api "repos/${UPSTREAM}/releases/latest" --jq .tag_name)
-          in_flight=$(gh run list --workflow build.yml --limit 30 --json displayTitle,status \
-            --jq '[.[] | select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "pending") | select(.displayTitle | test("^build stable "))] | length')
-          if [[ "${in_flight}" != "0" ]]; then
+          active='select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "pending")'
+          dispatched=$(gh run list --workflow build.yml --limit 30 --json displayTitle,status \
+            --jq "[.[] | ${active} | select(.displayTitle | test(\"^build stable \"))] | length")
+          pushed=$(gh run list --workflow push.yml --limit 10 --json status --jq "[.[] | ${active}] | length")
+          if (( dispatched + pushed > 0 )); then
             echo "A stable build is already in flight; skipping this week's package check." | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           fi

@@ -102,8 +102,8 @@ workflow uses the repository's own `GITHUB_TOKEN`.
 ### The pipeline
 
 `build.yml` is the only workflow that touches the image, and it runs the
-same way whether a release, a commit, the weekly check or a pull request
-asked for it.
+same way whether a push to this repository, a broker release or commit, the
+weekly check or a pull request asked for it.
 
 1. **Build** on one runner. The runner first reclaims disk with
    `ci/scripts/free-disk.sh`, then builds the Dockerfile and pushes the
@@ -141,6 +141,7 @@ record step will fail while the tags have already moved.
 
 | Workflow | When | What |
 | --- | --- | --- |
+| `push.yml` | every push to `main` | Rebuilds and publishes both `latest` and `dev`, whether or not the package hash moved, because the Dockerfile or overlay changed. Documentation only changes and the bot's own `package_versions.txt` commits do not trigger it. |
 | `check-upstream.yml` | every fifteen minutes | Reads romm-broker's latest release and `master` head, compares each with the `broker-ref` label on `:latest` and `:dev`, and dispatches a build for whichever differs. Skips a channel that already has a build queued or running. |
 | `package-check.yml` | weekly, Sunday morning UTC | Dispatches a stable build of the current release so base image, apt and emulator updates get picked up. |
 | `pr.yml` | pull requests | Lints the shell, workflow and Python pieces, then runs the full build and smoke suite with publishing off. Fork PRs get the lint job only, because a fork's token cannot push the candidate for the test runner to pull. |
@@ -229,7 +230,7 @@ root/                    files layered over the base image: s6 services, nginx t
                          emulator defaults, desktop launchers, the MOTD branding
 package_versions.txt     what the current :latest contains, committed by the pipeline
 ci/                      smoke tests and the scripts the workflows call
-.github/workflows/       build.yml, check-upstream.yml, package-check.yml, pr.yml
+.github/workflows/       build.yml, push.yml, check-upstream.yml, package-check.yml, pr.yml
 ```
 
 ## License

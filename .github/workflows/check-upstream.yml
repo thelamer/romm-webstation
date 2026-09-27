@@ -61,11 +61,15 @@ jobs:
             docker buildx imagetools inspect "${IMAGE}:$1" --format '{{json .Image}}' 2>/dev/null \
               | jq -r '.config.Labels["io.romm-streaming.webstation.broker-ref"] // "none"' || echo none
           }
+          active='select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "pending" or .status == "requested")'
           build_in_flight() {
-            # Any queued or running build.yml run whose name carries this channel and ref.
-            gh run list --workflow build.yml --limit 30 \
-              --json displayTitle,status \
-              --jq "[.[] | select(.status == \"queued\" or .status == \"in_progress\" or .status == \"waiting\" or .status == \"pending\" or .status == \"requested\") | select(.displayTitle | test(\"^build $1 \"))] | length"
+            # A dispatched build for this channel, or a push build (which covers both channels).
+            local dispatched pushed
+            dispatched=$(gh run list --workflow build.yml --limit 30 --json displayTitle,status \
+              --jq "[.[] | ${active} | select(.displayTitle | test(\"^build $1 \"))] | length")
+            pushed=$(gh run list --workflow push.yml --limit 10 --json status \
+              --jq "[.[] | ${active}] | length")
+            echo $(( dispatched + pushed ))
           }
 
           latest_release=$(gh api "repos/${UPSTREAM}/releases/latest" --jq .tag_name)
